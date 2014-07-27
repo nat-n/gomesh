@@ -5,6 +5,7 @@ A go package for processing 3D meshes.
 
 ## Example Usage
 
+```go
     package main
     
     import "fmt"
@@ -48,3 +49,4 @@ A go package for processing 3D meshes.
     		fmt.Println(uhoh)
     	}
     }
+```
