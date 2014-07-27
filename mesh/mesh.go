@@ -1,13 +1,8 @@
 package mesh
 
 import (
-	"bufio"
 	"container/list"
-	"errors"
 	"math"
-	"os"
-	"strconv"
-	"strings"
 )
 
 import cb "github.com/nat-n/gomesh/cuboid"
@@ -21,6 +16,7 @@ type Mesh struct {
 	Faces tb.TriangleBuffer
 }
 
+// Constructor
 func New(name string) *Mesh {
 	return &Mesh{
 		Name:  name,
@@ -30,14 +26,14 @@ func New(name string) *Mesh {
 	}
 }
 
-// apply the given transformation to every vertex
+// Applies the given transformation to every vertex.
 func (m *Mesh) Transform(t tr.Transformation) {
 	for i := 0; i < m.Verts.Len(); i++ {
 		t.Apply(m.Verts.Buffer[i*3 : i*3+3])
 	}
 }
 
-// apply the given transformation to each vertex in indices
+// Applies the given transformation to each vertex in indices.
 func (m *Mesh) TransformSubset(indices []int, t tr.Transformation) {
 	for _, i := range indices {
 		t.Apply(m.Verts.Buffer[i*3 : i*3+3])
@@ -87,16 +83,16 @@ func (m *Mesh) SubsetBoundingBox(subset_indices []int) *cb.Cuboid {
 }
 
 // Identifies border vertices and returns an array of arrays representing closed
-//  loops of border vertices.
+// loops of border vertices.
 // Border vertices are identified as including a face which includes and edge
-//  which is only included in that one face.
+// which is only included in that one face.
 func (m *Mesh) IdentifyBoundaries() (boundaries [][]int) {
 	partials := list.New()
 
 	boundary_edges := list.New()
 
 	// Build up boundary_edges as a sequences of pairs of vertex indices
-	//  representing boundary edges
+	// representing boundary edges
 	m.Faces.UpdateIndex()
 	for i := 0; i < m.Verts.Len(); i++ {
 		face_triples := m.Faces.TriplesWith(i)
@@ -117,7 +113,7 @@ func (m *Mesh) IdentifyBoundaries() (boundaries [][]int) {
 	}
 
 	// Transform boundary_edges into one or more closed loops of connected
-	//  vertices using partials for termporary storage
+	// vertices using partials for termporary storage
 	for boundary_edges.Len() > 0 {
 		latest_partial := make([]int, 0, 1000)
 		first_edge := boundary_edges.Front().Value.([2]int)
@@ -154,163 +150,6 @@ func (m *Mesh) IdentifyBoundaries() (boundaries [][]int) {
 		boundaries = append(boundaries, complete_boundary)
 	}
 
-	return
-}
-
-// Populate this Mesh from the given OBJ file
-func LoadOBJ(obj_path string) (m *Mesh, err error) {
-	// prepare for data
-	m = New("")
-	m.Verts = tb.NewVertexBuffer()
-	m.Norms = tb.NewVectorBuffer()
-	m.Faces = tb.NewTriangleBuffer()
-
-	// setup for parsing
-	var (
-		line  string
-		words []string
-	)
-	line_no := -1
-
-	// open and parse file
-	file, _ := os.Open(obj_path)
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line_no++
-		// trim leading and trailing whitespace
-		line = strings.TrimSpace(scanner.Text())
-		// firstly discard anything on this line after a #
-		if comment_start := strings.Index(line, "#"); comment_start >= 0 {
-			line = line[:comment_start]
-		}
-		// ignore empty lines
-		if len(line) == 0 {
-			continue
-		}
-		words = strings.Fields(line)
-		switch words[0] {
-		case "v":
-			// read in a vertex
-			floats, parseErr := parse3Floats(words[1:])
-			if parseErr != nil {
-				err = errors.New(
-					"Error parsing OBJ file on line: " +
-						strconv.Itoa(line_no))
-				return
-			}
-			m.Verts.Append(floats[0], floats[1], floats[2])
-		case "vn":
-			// read in a vertex normal
-			floats, parseErr := parse3Floats(words[1:])
-			if parseErr != nil {
-				err = errors.New(
-					"Error parsing OBJ file on line: " +
-						strconv.Itoa(line_no))
-				return
-			}
-			m.Norms.Append(floats[0], floats[1], floats[2])
-		case "f":
-			// read in a faces
-			ints, parseErr := parse3Ints(words[1:])
-			if parseErr != nil {
-				err = errors.New(
-					"Error parsing OBJ file on line: " +
-						strconv.Itoa(line_no))
-				return
-			}
-			m.Faces.Append(ints[0]-1, ints[1]-1, ints[2]-1)
-		default:
-			err = errors.New(
-				"Error parsing OBJ file on line: " +
-					strconv.Itoa(line_no))
-			return
-		}
-
-	}
-	return
-}
-
-// Write this mesh to a new obj file.
-func (m *Mesh) WriteOBJ(obj_path string) (problem error) {
-	f, err := os.Create(obj_path)
-	if err != nil {
-		problem = errors.New(
-			"Error occured when attempting to write obj file: " + obj_path,
-		)
-		return
-	}
-	for i := 0; i < m.Verts.Len(); i++ {
-		_, err = f.Write([]byte(
-			"v " + strconv.FormatFloat(m.Verts.Buffer[i*3], 'f', -1, 64) +
-				" " + strconv.FormatFloat(m.Verts.Buffer[i*3+1], 'f', -1, 64) +
-				" " + strconv.FormatFloat(m.Verts.Buffer[i*3+2], 'f', -1, 64) +
-				"\n",
-		))
-	}
-	// It seems improbably that an error would occur for writing vertex but not
-	//  the last one so only check the last one.
-	if err != nil {
-		problem = errors.New(
-			"Error occured when attempting to write vertices to obj file: " +
-				obj_path,
-		)
-		return
-	}
-
-	// Write out normals, unless the norms buffer is empty
-	if !m.Norms.IsEmpty() {
-		for i := 0; i < m.Norms.Len(); i++ {
-			_, err = f.WriteString(
-				"vn " + strconv.FormatFloat(m.Norms.Buffer[i*3], 'f', -1, 64) +
-					" " + strconv.FormatFloat(m.Norms.Buffer[i*3+1], 'f', -1, 64) +
-					" " + strconv.FormatFloat(m.Norms.Buffer[i*3+2], 'f', -1, 64) +
-					"\n",
-			)
-		}
-	}
-	// It seems improbably that an error would occur for writing vertex but not
-	// the last one so only check the last one.
-	if err != nil {
-		problem = errors.New(
-			"Error occured when attempting to write vertex normals obj file: " +
-				obj_path,
-		)
-		return
-	}
-
-	// Write out faces
-	for i := 0; i < m.Faces.Len(); i++ {
-		_, err = f.Write([]byte(
-			"f " + strconv.Itoa(m.Faces.Buffer[i*3]+1) +
-				" " + strconv.Itoa(m.Faces.Buffer[i*3+1]+1) +
-				" " + strconv.Itoa(m.Faces.Buffer[i*3+2]+1) +
-				"\n",
-		))
-	}
-	// It seems improbably that an error would occur for writing vertex but not
-	// the last one so only check the last one.
-	if err != nil {
-		problem = errors.New(
-			"Error occured when attempting to write faces to obj file: " + obj_path,
-		)
-		return
-	}
-	return
-}
-
-// Read in STL file as new mesh. Not yet implemented
-func LoadSTL(stl_path string) (m *Mesh, err error) {
-	err = errors.New(
-		"STL reading not yet implemented",
-	)
-	return
-}
-
-// Write mesh to STL file. Not yet implemented
-func (m *Mesh) WriteSTL(stl_path string) (problem error) {
-	problem = errors.New(
-		"STL writing not yet implemented",
-	)
 	return
 }
 
