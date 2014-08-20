@@ -15,25 +15,27 @@ func NewVertexBuffer() VertexBuffer {
 	}}
 }
 
+// TODO:
 // Accepts three vertex indices and calculates the normal vector of the triangle
 //  defined by them.
-func (vb *VertexBuffer) triangleNormal(a, b, c int) [3]float64 {
-	return [3]float64{0, 0, 0}
-}
+// func (vb *VertexBuffer) triangleNormal(a, b, c int) [3]float64 {
+// 	return [3]float64{0, 0, 0}
+// }
 
 // Accepts the indices of two vertices and calculates the distance between them.
-func (vb *VertexBuffer) distanceBetween(i1, i2 int) float64 {
+func (vb *VertexBuffer) DistanceBetween(i1, i2 int) float64 {
 	return math.Sqrt(math.Pow(vb.Buffer[i1*3]-vb.Buffer[i2*3], 2) +
 		math.Pow(vb.Buffer[i1*3+1]-vb.Buffer[i2*3+1], 2) +
 		math.Pow(vb.Buffer[i1*3+2]-vb.Buffer[i2*3+2], 2))
 }
 
-func (vb *VertexBuffer) distanceFrom(i1 int, x, y, z float64) float64 {
+func (vb *VertexBuffer) DistanceFrom(i1 int, x, y, z float64) float64 {
 	return math.Sqrt(math.Pow(vb.Buffer[i1*3]-x, 2) +
 		math.Pow(vb.Buffer[i1*3+1]-y, 2) +
 		math.Pow(vb.Buffer[i1*3+2]-z, 2))
 }
 
+// TODO:
 // Finds the shortest distance from the vertex with the given index, to the line
 //  of points [x1,y1,z1] and [x2,y2,z2].
 // func (vb *VertexBuffer) distanceFromLine(i int,
@@ -65,7 +67,7 @@ func (vb *VertexBuffer) distanceFrom(i1 int, x, y, z float64) float64 {
 // }
 
 // Accepts set of vertex indices and calculates the average vertex.
-func (vb *VertexBuffer) average(indices ...int) [3]float64 {
+func (vb *VertexBuffer) Average(indices ...int) [3]float64 {
 	sum := [3]float64{}
 	for _, i := range indices {
 		sum[0] += vb.Buffer[i*3]
@@ -83,7 +85,7 @@ func (vb *VertexBuffer) average(indices ...int) [3]float64 {
 //  vertex indices defining the line segment of the hypotenuse and true.
 // If the triangle is not right angled then it returns a slice containing two
 //  zeros and false.
-func (vb *VertexBuffer) hypotenuse(a, b, c int) ([2]int, bool) {
+func (vb *VertexBuffer) Hypotenuse(a, b, c int) ([2]int, bool) {
 	FLOAT_EQUALITY_THRESHOLD := 0.0000001
 
 	sqrA := (math.Pow(vb.Buffer[a*3]-vb.Buffer[b*3], 2) +
