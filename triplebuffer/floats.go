@@ -1,6 +1,7 @@
 package triplebuffer
 
 import (
+	"github.com/nat-n/geom"
 	"math"
 	"strconv"
 	"strings"
@@ -15,10 +16,11 @@ func (tb *tripleFloatBuffer) Len() int {
 	return len(tb.Buffer) / 3
 }
 
-func (tb *tripleFloatBuffer) Get(indices ...int) []float64 {
-	result := make([]float64, 0, len(indices)*3)
+func (tb *tripleFloatBuffer) Get(indices ...int) []*geom.Vec3 {
+	result := make([]*geom.Vec3, 0, len(indices))
 	for _, i := range indices {
-		result = append(result, tb.Buffer[i*3], tb.Buffer[i*3+1], tb.Buffer[i*3+2])
+		result = append(result,
+			&geom.Vec3{tb.Buffer[i*3], tb.Buffer[i*3+1], tb.Buffer[i*3+2]})
 	}
 	return result
 }
@@ -71,6 +73,9 @@ func (tb *tripleFloatBuffer) RemoveOne(i int) {
 // This method works by copying the contents of the Buffer once, and filtering
 // out any triples referenced in indices.
 func (tb *tripleFloatBuffer) Remove(indices ...int) {
+	if len(indices) == 0 {
+		return
+	}
 	// ensure indices are valid and sorted and unique
 	for _, i := range indices {
 		if i < 0 || i > len(tb.Buffer)/3 {
@@ -85,21 +90,21 @@ func (tb *tripleFloatBuffer) Remove(indices ...int) {
 	new_Buffer := make([]float64, 0, new_len)
 	previous := indices[0]
 	// copy over triples before the first index
-	if indices[0] > 0 {
+	if previous > 0 {
 		new_Buffer = append(new_Buffer, tb.Buffer[:previous*3]...)
 	}
 
 	// copy over triples between indices
 	for _, i := range indices {
 		if i > previous {
-			new_Buffer = append(new_Buffer, tb.Buffer[(previous)*3:i*3]...)
+			new_Buffer = append(new_Buffer, tb.Buffer[previous*3:i*3]...)
 		}
 		previous = i + 1
 	}
 
 	// copy over triples after the last index
-	if previous <= new_len {
-		new_Buffer = append(new_Buffer, tb.Buffer[(previous)*3:]...)
+	if previous < tb.Len() {
+		new_Buffer = append(new_Buffer, tb.Buffer[previous*3:]...)
 	}
 
 	tb.Buffer = new_Buffer
@@ -108,6 +113,7 @@ func (tb *tripleFloatBuffer) Remove(indices ...int) {
 // This should be smarter about building up each array gradually!
 // ... although the arrays wont get very big.
 func (tb *tripleFloatBuffer) UpdateIndex() {
+	tb.Index = make(map[float64][]int)
 	len3 := tb.Len()
 	var index int
 	for i := 0; i < len3; i++ {
@@ -150,13 +156,13 @@ func (tb *tripleFloatBuffer) EachWithIndex(f func(int, float64, float64, float64
 	}
 }
 
-func (tb *tripleFloatBuffer) TriplesWith(value float64) []float64 {
+func (tb *tripleFloatBuffer) TriplesWith(value float64) []*geom.Vec3 {
 	indices, found := tb.Index[value]
 	if found {
 		indices = uniqifyInts(indices)
 		return tb.Get(indices...)
 	} else {
-		return make([]float64, 0)
+		return make([]*geom.Vec3, 0)
 	}
 }
 

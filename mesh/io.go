@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"io"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -154,5 +155,32 @@ func (m *Mesh) WriteSTL(stl_path string) (err error) {
 	err = errors.New(
 		"STL writing not yet implemented",
 	)
+	return
+}
+
+func ReadOBJFile(input_path string) (m *Mesh, err error) {
+	// Open file
+	input_file, err := os.Open(input_path)
+	if err != nil {
+		return
+	}
+	defer input_file.Close()
+
+	// Read from file
+	mesh_reader := io.Reader(input_file)
+	m, err = LoadOBJ(&mesh_reader)
+
+	return
+}
+
+func (m *Mesh) WriteOBJFile(output_path string) (err error) {
+	// Serialized JSON and stream to a file
+	output_file, err := os.Create(output_path)
+	if err != nil {
+		return
+	}
+	defer output_file.Close()
+	err = m.WriteOBJ(io.Writer(output_file))
+
 	return
 }

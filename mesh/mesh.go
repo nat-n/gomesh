@@ -3,6 +3,7 @@ package mesh
 import (
 	"container/list"
 	"math"
+	"sort"
 )
 
 import cb "github.com/nat-n/gomesh/cuboid"
@@ -84,12 +85,10 @@ func (m *Mesh) SubsetBoundingBox(subset_indices []int) *cb.Cuboid {
 
 // Identifies border vertices and returns an array of arrays representing closed
 // loops of border vertices.
-// Border vertices are identified as including a face which includes and edge
+// Border vertices are identified as including a face which includes an edge
 // which is only included in that one face.
 func (m *Mesh) IdentifyBoundaries() (boundaries [][]int) {
-	partials := list.New()
-
-	boundary_edges := list.New()
+	boundary_edges_slice := make([][2]int, 0)
 
 	// Build up boundary_edges as a sequences of pairs of vertex indices
 	// representing boundary edges
@@ -107,15 +106,25 @@ func (m *Mesh) IdentifyBoundaries() (boundaries [][]int) {
 		}
 		for v, count := range vertex_counts {
 			if count == 1 {
-				boundary_edges.PushBack([2]int{i, v})
+				boundary_edges_slice = append(boundary_edges_slice, [2]int{i, v})
 			}
 		}
 	}
 
+	// The purpose of the intermediate boundary_edges_slice is so the following
+	// intermediate boundary_edges list will be sorted so that this function can
+	// be idempotent.
+	boundary_edges := list.New()
+	sort.Sort(byIndices(boundary_edges_slice))
+	for _, boundary_edge := range boundary_edges_slice {
+		boundary_edges.PushBack(boundary_edge)
+	}
+
 	// Transform boundary_edges into one or more closed loops of connected
 	// vertices using partials for termporary storage
+	partials := list.New()
 	for boundary_edges.Len() > 0 {
-		latest_partial := make([]int, 0, 1000)
+		latest_partial := make([]int, 0)
 		first_edge := boundary_edges.Front().Value.([2]int)
 		latest_partial = append(latest_partial, first_edge[0], first_edge[1])
 		_ = boundary_edges.Remove(boundary_edges.Front())
@@ -186,4 +195,14 @@ func FromCuboid(c *cb.Cuboid) (m Mesh) {
 		5, 4, 7,
 	}
 	return
+}
+
+// for sorting the slice of edges... TODO: tidy this up somewhere
+
+type byIndices [][2]int
+
+func (v byIndices) Len() int      { return len(v) }
+func (v byIndices) Swap(i, j int) { v[i], v[j] = v[j], v[i] }
+func (v byIndices) Less(i, j int) bool {
+	return v[i][0] < v[j][0] || (v[i][0] == v[j][0] && v[i][1] < v[j][1])
 }

@@ -69,7 +69,10 @@ func (tb *tripleIntBuffer) RemoveOne(i int) {
 
 // This method works by copying the contents of the Buffer once, and filtering
 // out any triples referenced in indices.
-func (tb *tripleIntBuffer) Remove(indices ...int) {
+func (tb *tripleIntBuffer) Remove(indices ...int) { //                           should accept no indices???
+	if len(indices) == 0 {
+		return
+	}
 	// ensure indices are valid and sorted and unique
 	for _, i := range indices {
 		if i < 0 || i > len(tb.Buffer)/3 {
@@ -84,27 +87,28 @@ func (tb *tripleIntBuffer) Remove(indices ...int) {
 	new_Buffer := make([]int, 0, new_len)
 	previous := indices[0]
 	// copy over triples before the first index
-	if indices[0] > 0 {
+	if previous > 0 {
 		new_Buffer = append(new_Buffer, tb.Buffer[:previous*3]...)
 	}
 
 	// copy over triples between indices
 	for _, i := range indices {
 		if i > previous {
-			new_Buffer = append(new_Buffer, tb.Buffer[(previous)*3:i*3]...)
+			new_Buffer = append(new_Buffer, tb.Buffer[previous*3:i*3]...)
 		}
 		previous = i + 1
 	}
 
 	// copy over triples after the last index
-	if previous <= new_len {
-		new_Buffer = append(new_Buffer, tb.Buffer[(previous)*3:]...)
+	if previous < tb.Len() {
+		new_Buffer = append(new_Buffer, tb.Buffer[previous*3:]...)
 	}
 
 	tb.Buffer = new_Buffer
 }
 
 func (tb *tripleIntBuffer) UpdateIndex() {
+	tb.Index = make(map[int][]int)
 	len3 := tb.Len()
 	var index int
 	for i := 0; i < len3; i++ {
@@ -137,12 +141,26 @@ func (tb *tripleIntBuffer) Each(f func(int, int, int)) {
 	}
 }
 
+// Loop with a function over the indexed triples in the Buffer
+func (tb *tripleIntBuffer) EachOf(f func(int, int, int), indices ...int) {
+	for _, i := range indices {
+		f(tb.Buffer[i*3], tb.Buffer[i*3+1], tb.Buffer[i*3+2])
+	}
+}
+
 func (tb *tripleIntBuffer) EachWithIndex(f func(int, int, int, int)) {
 	len3 := tb.Len()
 	var index int
 	for i := 0; i < len3; i++ {
 		index = i * 3
 		f(i, tb.Buffer[index], tb.Buffer[index+1], tb.Buffer[index+2])
+	}
+}
+
+// Loop with a function over the indexed triples in the Buffer
+func (tb *tripleIntBuffer) EachOfWithIndex(f func(int, int, int, int), indices ...int) {
+	for _, i := range indices {
+		f(i, tb.Buffer[i*3], tb.Buffer[i*3+1], tb.Buffer[i*3+2])
 	}
 }
 
