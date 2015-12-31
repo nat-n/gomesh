@@ -69,7 +69,7 @@ func (tb *tripleIntBuffer) RemoveOne(i int) {
 
 // This method works by copying the contents of the Buffer once, and filtering
 // out any triples referenced in indices.
-func (tb *tripleIntBuffer) Remove(indices ...int) { //                           should accept no indices???
+func (tb *tripleIntBuffer) Remove(indices ...int) {
 	if len(indices) == 0 {
 		return
 	}
@@ -100,7 +100,7 @@ func (tb *tripleIntBuffer) Remove(indices ...int) { //                          
 	}
 
 	// copy over triples after the last index
-	if previous < tb.Len() {
+	if len(new_Buffer) < new_len {
 		new_Buffer = append(new_Buffer, tb.Buffer[previous*3:]...)
 	}
 

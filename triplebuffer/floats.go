@@ -103,7 +103,7 @@ func (tb *tripleFloatBuffer) Remove(indices ...int) {
 	}
 
 	// copy over triples after the last index
-	if previous < tb.Len() {
+	if len(new_Buffer) < new_len {
 		new_Buffer = append(new_Buffer, tb.Buffer[previous*3:]...)
 	}
 
@@ -131,6 +131,19 @@ func (tb *tripleFloatBuffer) Collect(f func(float64, float64, float64) (float64,
 	for i := 0; i < len3; i++ {
 		index = i * 3
 		tb.Buffer[index], tb.Buffer[index+1], tb.Buffer[index+2] = f(
+			tb.Buffer[index], tb.Buffer[index+1], tb.Buffer[index+2],
+		)
+	}
+}
+
+// Collect/map over the triples in the Buffer
+func (tb *tripleFloatBuffer) CollectWithindex(f func(int, float64, float64, float64) (float64, float64, float64)) {
+	len3 := tb.Len()
+	var index int
+	for i := 0; i < len3; i++ {
+		index = i * 3
+		tb.Buffer[index], tb.Buffer[index+1], tb.Buffer[index+2] = f(
+			i,
 			tb.Buffer[index], tb.Buffer[index+1], tb.Buffer[index+2],
 		)
 	}

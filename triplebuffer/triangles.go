@@ -29,6 +29,21 @@ func (tb *TriangleBuffer) ApplyMap(mapp map[int]int) {
 	}
 }
 
+// Assumes an up to date index exists
+func (tb *TriangleBuffer) NeighboursOf(i int) (result []int) {
+	verts := tb.Get(tb.Index[i]...)
+	set := make(map[int]bool)
+	for _, vi := range verts {
+		set[vi] = true
+	}
+	for vi, _ := range set {
+		if vi != i {
+			result = append(result, vi)
+		}
+	}
+	return
+}
+
 // calculate a normal vector for triangle with vertices a, b and c using the
 // "right-hand rule"
 func Normal(a, b, c []float64) (x, y, z float64) {

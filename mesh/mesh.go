@@ -162,41 +162,6 @@ func (m *Mesh) IdentifyBoundaries() (boundaries [][]int) {
 	return
 }
 
-// Constructs a new Mesh from a cuboid.
-func FromCuboid(c *cb.Cuboid) (m Mesh) {
-	m = Mesh{
-		Name:  "Cuboid",
-		Verts: tb.NewVertexBuffer(),
-		Norms: tb.NewVectorBuffer(),
-		Faces: tb.NewTriangleBuffer(),
-	}
-	m.Verts.Buffer = []float64{
-		c.OriginX, c.OriginY, c.OriginZ,
-		c.TerminusX, c.OriginY, c.OriginZ,
-		c.TerminusX, c.OriginY, c.TerminusZ,
-		c.OriginX, c.OriginY, c.TerminusZ,
-		c.OriginX, c.TerminusY, c.OriginZ,
-		c.TerminusX, c.TerminusY, c.OriginZ,
-		c.TerminusX, c.TerminusY, c.TerminusZ,
-		c.OriginX, c.TerminusY, c.TerminusZ,
-	}
-	m.Faces.Buffer = []int{
-		0, 2, 1,
-		0, 3, 2,
-		0, 5, 1,
-		0, 4, 5,
-		1, 6, 2,
-		1, 5, 6,
-		2, 7, 3,
-		2, 6, 7,
-		3, 4, 0,
-		3, 7, 4,
-		5, 7, 6,
-		5, 4, 7,
-	}
-	return
-}
-
 // for sorting the slice of edges... TODO: tidy this up somewhere
 
 type byIndices [][2]int
