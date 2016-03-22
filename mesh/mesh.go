@@ -1,173 +1,149 @@
 package mesh
 
 import (
-	"container/list"
-	"math"
-	"sort"
+	"errors"
+	"fmt"
+	"github.com/nat-n/geom"
 )
 
-import cb "github.com/nat-n/gomesh/cuboid"
-import tr "github.com/nat-n/gomesh/transformation"
-import tb "github.com/nat-n/gomesh/triplebuffer"
+type MeshI interface {
+	GetName() string
+	GetVertices() VertexCollection
+	GetFaces() FaceCollection
+	GetIndexOf(v VertexI) int
+	ReindexVerticesAndFaces()
+}
 
 type Mesh struct {
-	Name  string
-	Verts tb.VertexBuffer
-	Norms tb.VectorBuffer
-	Faces tb.TriangleBuffer
+	Name     string
+	Vertices VertexCollection
+	Faces    FaceCollection
 }
 
 // Constructor
 func New(name string) *Mesh {
 	return &Mesh{
-		Name:  name,
-		Verts: tb.NewVertexBuffer(),
-		Norms: tb.NewVectorBuffer(),
-		Faces: tb.NewTriangleBuffer(),
+		Name:     name,
+		Vertices: &VertexSlice{make([]VertexI, 0)},
+		Faces:    &FaceSlice{make([]FaceI, 0)},
 	}
 }
 
-// Applies the given transformation to every vertex.
-func (m *Mesh) Transform(t tr.Transformation) {
-	for i := 0; i < m.Verts.Len(); i++ {
-		t.Apply(m.Verts.Buffer[i*3 : i*3+3])
-	}
+type VertexCollection interface {
+	Len() int
+	Get(...int) []VertexI
+	Update(int, VertexI)
+	GetAll() []VertexI
+	Append(...VertexI)
+	Remove(...int)
+	Filter(func(VertexI) bool)
+	Each(func(VertexI))
+	EachWithIndex(func(int, VertexI))
+	IsEmpty() bool
+	Average() geom.Vec3
+	ToString() string
+	PositionsAsCSV() string
+	NormalsAsCSV() string
 }
 
-// Applies the given transformation to each vertex in indices.
-func (m *Mesh) TransformSubset(indices []int, t tr.Transformation) {
-	for _, i := range indices {
-		t.Apply(m.Verts.Buffer[i*3 : i*3+3])
-	}
+type FaceCollection interface {
+	Len() int
+	Get(...int) []FaceI
+	Update(int, FaceI)
+	GetAll() []FaceI
+	Append(...FaceI)
+	Remove(...int)
+	Filter(func(FaceI) bool)
+	Each(func(FaceI))
+	EachWithIndex(func(int, FaceI))
+	IsEmpty() bool
+	ToString() string
+	IndicesAsCSV() string
 }
 
-func (m *Mesh) BoundingBox() *cb.Cuboid {
-	var minX, maxX, minY, maxY, minZ, maxZ float64
-	var index int
-	minX = math.Inf(1)
-	minY = math.Inf(1)
-	minZ = math.Inf(1)
-	maxX = math.Inf(-1)
-	maxY = math.Inf(-1)
-	maxZ = math.Inf(-1)
-	for i := 0; i < m.Verts.Len(); i++ {
-		index = i * 3
-		minX = math.Min(minX, m.Verts.Buffer[index])
-		minY = math.Min(minY, m.Verts.Buffer[index+1])
-		minZ = math.Min(minZ, m.Verts.Buffer[index+2])
-		maxX = math.Max(maxX, m.Verts.Buffer[index])
-		maxY = math.Max(maxY, m.Verts.Buffer[index+1])
-		maxZ = math.Max(maxZ, m.Verts.Buffer[index+2])
-	}
-	return cb.New(minX, minY, minZ, maxX, maxY, maxZ)
+func (m *Mesh) GetName() string {
+	return m.Name
 }
 
-func (m *Mesh) SubsetBoundingBox(subset_indices []int) *cb.Cuboid {
-	var minX, maxX, minY, maxY, minZ, maxZ float64
-	var index int
-	minX = math.Inf(1)
-	minY = math.Inf(1)
-	minZ = math.Inf(1)
-	maxX = math.Inf(-1)
-	maxY = math.Inf(-1)
-	maxZ = math.Inf(-1)
-	for _, i := range subset_indices {
-		index = i * 3
-		minX = math.Min(minX, m.Verts.Buffer[index])
-		minY = math.Min(minY, m.Verts.Buffer[index+1])
-		minZ = math.Min(minZ, m.Verts.Buffer[index+2])
-		maxX = math.Max(maxX, m.Verts.Buffer[index])
-		maxY = math.Max(maxY, m.Verts.Buffer[index+1])
-		maxZ = math.Max(maxZ, m.Verts.Buffer[index+2])
-	}
-	return cb.New(minX, minY, minZ, maxX, maxY, maxZ)
+func (m *Mesh) GetVertices() VertexCollection {
+	return m.Vertices
 }
 
-// Identifies border vertices and returns an array of arrays representing closed
-// loops of border vertices.
-// Border vertices are identified as including a face which includes an edge
-// which is only included in that one face.
-func (m *Mesh) IdentifyBoundaries() (boundaries [][]int) {
-	boundary_edges_slice := make([][2]int, 0)
+func (m *Mesh) GetFaces() FaceCollection {
+	return m.Faces
+}
 
-	// Build up boundary_edges as a sequences of pairs of vertex indices
-	// representing boundary edges
-	m.Faces.UpdateIndex()
-	for i := 0; i < m.Verts.Len(); i++ {
-		face_triples := m.Faces.TriplesWith(i)
-		vertex_counts := make(map[int]int)
-		for _, v := range face_triples {
-			// discard occurances of i
-			// discard vertices less than i because they should already have been picked
-			//  up in a previous iteration of the outerloop
-			if v > i {
-				vertex_counts[v]++
-			}
+func (m *Mesh) GetIndexOf(v VertexI) (index int) {
+
+	// THIS IS AWFUL, WHY DO WE NEED THIS???
+
+	was_set := false
+
+	v.EachMeshLocation(func(m2 Mesh, i int) {
+		if m2.GetName() == m.GetName() &&
+			m2.GetFaces() == m.GetFaces() &&
+			m2.GetFaces() == m.GetFaces() &&
+			m2.GetVertices() == m.GetVertices() {
+			index = i
+			was_set = true
+			return
 		}
-		for v, count := range vertex_counts {
-			if count == 1 {
-				boundary_edges_slice = append(boundary_edges_slice, [2]int{i, v})
-			}
-		}
-	}
+	})
 
-	// The purpose of the intermediate boundary_edges_slice is so the following
-	// intermediate boundary_edges list will be sorted so that this function can
-	// be idempotent.
-	boundary_edges := list.New()
-	sort.Sort(byIndices(boundary_edges_slice))
-	for _, boundary_edge := range boundary_edges_slice {
-		boundary_edges.PushBack(boundary_edge)
+	if !was_set {
+		fmt.Println("v: ", v)
+		fmt.Println("m: ", m)
+		panic("wasn't set")
 	}
-
-	// Transform boundary_edges into one or more closed loops of connected
-	// vertices using partials for termporary storage
-	partials := list.New()
-	for boundary_edges.Len() > 0 {
-		latest_partial := make([]int, 0)
-		first_edge := boundary_edges.Front().Value.([2]int)
-		latest_partial = append(latest_partial, first_edge[0], first_edge[1])
-		_ = boundary_edges.Remove(boundary_edges.Front())
-		for true {
-			head := latest_partial[0]
-			tail := latest_partial[len(latest_partial)-1]
-			if head == tail {
-				break
-			}
-			for edge := boundary_edges.Front(); edge != nil; edge = edge.Next() {
-				if edge.Value.([2]int)[0] == tail {
-					latest_partial = append(latest_partial, edge.Value.([2]int)[1])
-					boundary_edges.Remove(edge)
-					break
-				} else if edge.Value.([2]int)[1] == tail {
-					latest_partial = append(latest_partial, edge.Value.([2]int)[0])
-					boundary_edges.Remove(edge)
-					break
-				}
-			}
-		}
-		partials.PushBack(latest_partial[:len(latest_partial)-1])
-	}
-
-	// Copy completed boundaries from partials over into boundaries
-	boundaries = make([][]int, 0, partials.Len())
-	for el := partials.Front(); el != nil; el = el.Next() {
-		complete_boundary := make([]int, len(el.Value.([]int)), len(el.Value.([]int)))
-		for i, boundary_vert := range el.Value.([]int) {
-			complete_boundary[i] = boundary_vert
-		}
-		boundaries = append(boundaries, complete_boundary)
-	}
-
 	return
+
 }
 
-// for sorting the slice of edges... TODO: tidy this up somewhere
+func (m *Mesh) ClearVertexIndices() {
 
-type byIndices [][2]int
+}
 
-func (v byIndices) Len() int      { return len(v) }
-func (v byIndices) Swap(i, j int) { v[i], v[j] = v[j], v[i] }
-func (v byIndices) Less(i, j int) bool {
-	return v[i][0] < v[j][0] || (v[i][0] == v[j][0] && v[i][1] < v[j][1])
+func (m *Mesh) ReindexVerticesAndFaces() {
+	m.Vertices.EachWithIndex(func(i int, v VertexI) {
+		v.ForgetLocationInMeshByName(m.GetName())
+		v.SetLocationInMesh(*m, i)
+	})
+	m.Faces.EachWithIndex(func(i int, f FaceI) { f.SetMeshLocation(*m, i) })
+}
+
+// Accepts two vertices with identical locations and moves all faces from the
+// secondaries to the primary
+// This method assumes vertex Indices are accurate
+func MergeSharedVertices(vprime VertexI, vsecs ...VertexI) (err error) {
+	for _, vsec := range vsecs {
+		if vprime.GetX() != vsec.GetX() ||
+			vprime.GetY() != vsec.GetY() ||
+			vprime.GetZ() != vsec.GetZ() {
+			err = errors.New("Cannot merge vertices with different locations: " +
+				vprime.ToString() + " " + vsec.ToString())
+			return
+		}
+	}
+	for _, vsec := range vsecs {
+		// connect faces from vsec to vprime
+		vsec.EachFace(func(f FaceI) {
+			f.ReplaceVertex(vsec, vprime)
+			err = vprime.AddFace(f)
+			if err != nil {
+				return
+			}
+		})
+
+		// clear face references from vsec
+		vsec.RemoveAllFaces()
+
+		// update vertex/mesh relationship to replace vsec with vprime
+		vsec_mesh, vsec_i := vsec.GetMeshLocation()
+		if vsec_mesh.GetVertices().Get(vsec_i)[0] != vsec {
+			panic("Method assumption violated: vertex index inaccurate")
+		}
+		vsec_mesh.GetVertices().Update(vsec_i, vprime)
+		vprime.SetLocationInMesh(vsec_mesh, vsec_i)
+	}
+	return
 }

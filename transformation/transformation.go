@@ -1,6 +1,7 @@
 package transformation
 
 import "math"
+import "github.com/nat-n/geom"
 
 type Transformation [16]float64
 
@@ -67,7 +68,7 @@ func (t *Transformation) Apply(v []float64) {
 	if len(v) != 3 {
 		panic("Transformations can only be applied to slices of length 3.")
 	}
-	// multiple t with the given vector to produce a quaternion
+	// multiply t with the given vector to produce a quaternion
 	q := [4]float64{
 		t[0]*v[0] + t[1]*v[1] + t[2]*v[2] + t[3],
 		t[4]*v[0] + t[5]*v[1] + t[6]*v[2] + t[7],
@@ -79,6 +80,23 @@ func (t *Transformation) Apply(v []float64) {
 	v[0] = q[0] / q[3]
 	v[1] = q[1] / q[3]
 	v[2] = q[2] / q[3]
+}
+
+func (t *Transformation) ApplyToVec3(vs ...geom.Vec3I) {
+	// multiply t with the given vector to produce a quaternion
+	for _, v := range vs {
+		q := [4]float64{
+			t[0]*v.GetX() + t[1]*v.GetY() + t[2]*v.GetZ() + t[3],
+			t[4]*v.GetX() + t[5]*v.GetY() + t[6]*v.GetZ() + t[7],
+			t[8]*v.GetX() + t[9]*v.GetY() + t[10]*v.GetZ() + t[11],
+			t[12]*v.GetX() + t[13]*v.GetY() + t[14]*v.GetZ() + t[15],
+		}
+
+		// Complete the transform and update v
+		v.SetX(q[0] / q[3])
+		v.SetY(q[1] / q[3])
+		v.SetZ(q[2] / q[3])
+	}
 }
 
 func Translation(x, y, z float64) Transformation {

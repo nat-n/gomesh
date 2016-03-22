@@ -1,6 +1,9 @@
 package cuboid
 
-import "math"
+import (
+	"github.com/nat-n/geom"
+	"math"
+)
 
 /*
  * Represents axis-aligned cuboids. Ideal for 3d bounding boxes.
@@ -36,11 +39,12 @@ func (c *Cuboid) Expanded(distance float64) *Cuboid {
 }
 
 // Find the center point of the cuboid.
-func (c *Cuboid) Center() (x, y, z float64) {
-	x = c.OriginX + (c.TerminusX-c.OriginX)/2
-	y = c.OriginY + (c.TerminusY-c.OriginY)/2
-	z = c.OriginZ + (c.TerminusZ-c.OriginZ)/2
-	return
+func (c *Cuboid) Center() geom.Vec3 {
+	return geom.Vec3{
+		c.OriginX + (c.TerminusX-c.OriginX)/2,
+		c.OriginY + (c.TerminusY-c.OriginY)/2,
+		c.OriginZ + (c.TerminusZ-c.OriginZ)/2,
+	}
 }
 
 // Checks if the cuboid contains a specific point.

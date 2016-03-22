@@ -3,20 +3,17 @@ package mesh
 import (
 	"bufio"
 	"errors"
+	"github.com/nat-n/geom"
 	"io"
 	"os"
 	"strconv"
 	"strings"
 )
-import tb "github.com/nat-n/gomesh/triplebuffer"
 
 // Populate this Mesh from the given OBJ file
 func LoadOBJ(obj_reader *io.Reader) (m *Mesh, err error) {
 	// prepare for data
 	m = New("")
-	m.Verts = tb.NewVertexBuffer()
-	m.Norms = tb.NewVectorBuffer()
-	m.Faces = tb.NewTriangleBuffer()
 
 	// setup for parsing
 	var (
@@ -24,6 +21,9 @@ func LoadOBJ(obj_reader *io.Reader) (m *Mesh, err error) {
 		words []string
 	)
 	line_no := -1
+
+	normalsBuffer := make([]*geom.Vec3, 0)
+	facesBuffer := make([][3]int, 0)
 
 	// open and parse file
 	scanner := bufio.NewScanner(*obj_reader)
@@ -45,51 +45,61 @@ func LoadOBJ(obj_reader *io.Reader) (m *Mesh, err error) {
 			// read in a vertex
 			floats, parseErr := parse3Floats(words[1:])
 			if parseErr != nil {
-				err = errors.New(
-					"Error parsing OBJ file on line: " +
-						strconv.Itoa(line_no))
+				err = newParseError("OBJ", line_no)
 				return
 			}
-			m.Verts.Append(floats[0], floats[1], floats[2])
+			m.Vertices.Append(&Vertex{
+				Vec3:   geom.Vec3{floats[0], floats[1], floats[2]},
+				Meshes: make(map[Mesh]int)})
 		case "vn":
 			// read in a vertex normal
 			floats, parseErr := parse3Floats(words[1:])
 			if parseErr != nil {
-				err = errors.New(
-					"Error parsing OBJ file on line: " +
-						strconv.Itoa(line_no))
+				err = newParseError("OBJ", line_no)
 				return
 			}
-			m.Norms.Append(floats[0], floats[1], floats[2])
+			normalsBuffer = append(normalsBuffer,
+				&geom.Vec3{floats[0], floats[1], floats[2]})
 		case "f":
 			// read in a faces
 			ints, parseErr := parse3Ints(words[1:])
 			if parseErr != nil {
-				err = errors.New(
-					"Error parsing OBJ file on line: " +
-						strconv.Itoa(line_no))
+				err = newParseError("OBJ", line_no)
 				return
 			}
-			m.Faces.Append(ints[0]-1, ints[1]-1, ints[2]-1)
+			facesBuffer = append(facesBuffer,
+				[3]int{ints[0] - 1, ints[1] - 1, ints[2] - 1})
 		default:
-			err = errors.New(
-				"Error parsing OBJ file on line: " +
-					strconv.Itoa(line_no))
+			err = newParseError("OBJ", line_no)
 			return
 		}
-
 	}
+
+	for i, n := range normalsBuffer {
+		m.Vertices.Get(i)[0].SetNormal(n)
+	}
+	for i, f := range facesBuffer {
+		abc := m.Vertices.Get(f[0], f[1], f[2])
+		a, b, c := abc[0], abc[1], abc[2]
+		m.Faces.Append(&Face{Vertices: [3]VertexI{a, b, c}, Mesh: *m, Index: i})
+	}
+
 	return
 }
 
 // Write this mesh to a new obj file.
 func (m *Mesh) WriteOBJ(obj_writer io.Writer) (err error) {
+	// track where vertices were written
+	vert_lookup := make(map[VertexI]int)
+
 	// Write Vertices
-	for i := 0; i < m.Verts.Len(); i++ {
+	for i := 0; i < m.Vertices.Len(); i++ {
+		v := m.Vertices.Get(i)[0]
+		vert_lookup[v] = i
 		_, err = obj_writer.Write([]byte(
-			"v " + strconv.FormatFloat(m.Verts.Buffer[i*3], 'f', -1, 64) +
-				" " + strconv.FormatFloat(m.Verts.Buffer[i*3+1], 'f', -1, 64) +
-				" " + strconv.FormatFloat(m.Verts.Buffer[i*3+2], 'f', -1, 64) +
+			"v " + strconv.FormatFloat(v.GetX(), 'f', -1, 64) +
+				" " + strconv.FormatFloat(v.GetY(), 'f', -1, 64) +
+				" " + strconv.FormatFloat(v.GetZ(), 'f', -1, 64) +
 				"\n",
 		))
 	}
@@ -102,16 +112,20 @@ func (m *Mesh) WriteOBJ(obj_writer io.Writer) (err error) {
 		return
 	}
 
-	// Write normals, unless the Norms buffer is empty
-	if !m.Norms.IsEmpty() {
-		for i := 0; i < m.Norms.Len(); i++ {
-			_, err = obj_writer.Write([]byte(
-				"vn " + strconv.FormatFloat(m.Norms.Buffer[i*3], 'f', -1, 64) +
-					" " + strconv.FormatFloat(m.Norms.Buffer[i*3+1], 'f', -1, 64) +
-					" " + strconv.FormatFloat(m.Norms.Buffer[i*3+2], 'f', -1, 64) +
-					"\n",
-			))
+	// Write normals, unless first vector has no normal
+	for i := 0; i < m.Vertices.Len(); i++ {
+		v := m.Vertices.Get(i)[0]
+		n := v.GetNormal()
+		if n == nil {
+			v.CalculateNormal()
+			n = v.GetNormal()
 		}
+		_, err = obj_writer.Write([]byte(
+			"vn " + strconv.FormatFloat(n.GetX(), 'f', -1, 64) +
+				" " + strconv.FormatFloat(n.GetY(), 'f', -1, 64) +
+				" " + strconv.FormatFloat(n.GetZ(), 'f', -1, 64) +
+				"\n",
+		))
 	}
 	// It seems improbably that an error would occur for writing vertex but not
 	// the last one so only check the last one.
@@ -124,10 +138,11 @@ func (m *Mesh) WriteOBJ(obj_writer io.Writer) (err error) {
 
 	// Write faces
 	for i := 0; i < m.Faces.Len(); i++ {
+		f := m.Faces.Get(i)[0]
 		_, err = obj_writer.Write([]byte(
-			"f " + strconv.Itoa(m.Faces.Buffer[i*3]+1) +
-				" " + strconv.Itoa(m.Faces.Buffer[i*3+1]+1) +
-				" " + strconv.Itoa(m.Faces.Buffer[i*3+2]+1) +
+			"f " + strconv.Itoa(vert_lookup[f.GetA()]+1) +
+				" " + strconv.Itoa(vert_lookup[f.GetB()]+1) +
+				" " + strconv.Itoa(vert_lookup[f.GetC()]+1) +
 				"\n",
 		))
 	}
@@ -183,4 +198,9 @@ func (m *Mesh) WriteOBJFile(output_path string) (err error) {
 	err = m.WriteOBJ(io.Writer(output_file))
 
 	return
+}
+
+func newParseError(fileType string, line_no int) error {
+	return errors.New(
+		"Error parsing " + fileType + " file on line: " + strconv.Itoa(line_no))
 }

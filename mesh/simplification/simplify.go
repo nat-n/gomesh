@@ -19,7 +19,7 @@ type vertex struct {
 }
 
 type face struct {
-	Verts     [3]*vertex
+	Vertices  [3]*vertex
 	Kp        *Quadric
 	Collapsed bool
 	Edges     []*edge // should be [3]*edge
@@ -92,7 +92,7 @@ func (h *edgeHeap) UpdateEdges(affected_edges []*edge) {
 
 // Not sure if this is needed
 func (f *face) IncludesVertex(v1 *vertex) bool {
-	for _, v2 := range f.Verts {
+	for _, v2 := range f.Vertices {
 		if v1 == v2 {
 			return true
 		}
@@ -193,9 +193,9 @@ func (e *edge) collapse(threshold float64) (did_collapse bool) {
 				// check if there is a face shared by all three
 				found_face := false
 				for _, v1_face := range e.V1.Faces {
-					if (e.V1 == v1_face.Verts[0] || e.V1 == v1_face.Verts[1] || e.V1 == v1_face.Verts[2]) &&
-						(e.V2 == v1_face.Verts[0] || e.V2 == v1_face.Verts[1] || e.V2 == v1_face.Verts[2]) &&
-						(v1_other == v1_face.Verts[0] || v1_other == v1_face.Verts[1] || v1_other == v1_face.Verts[2]) {
+					if (e.V1 == v1_face.Vertices[0] || e.V1 == v1_face.Vertices[1] || e.V1 == v1_face.Vertices[2]) &&
+						(e.V2 == v1_face.Vertices[0] || e.V2 == v1_face.Vertices[1] || e.V2 == v1_face.Vertices[2]) &&
+						(v1_other == v1_face.Vertices[0] || v1_other == v1_face.Vertices[1] || v1_other == v1_face.Vertices[2]) {
 						found_face = true
 					}
 				}
@@ -240,12 +240,12 @@ func (e *edge) collapse(threshold float64) (did_collapse bool) {
 			}
 		}
 		if !f.Collapsed {
-			if f.Verts[0] == e.V2 {
-				f.Verts[0] = e.V1
-			} else if f.Verts[1] == e.V2 {
-				f.Verts[1] = e.V1
-			} else if f.Verts[2] == e.V2 {
-				f.Verts[2] = e.V1
+			if f.Vertices[0] == e.V2 {
+				f.Vertices[0] = e.V1
+			} else if f.Vertices[1] == e.V2 {
+				f.Vertices[1] = e.V1
+			} else if f.Vertices[2] == e.V2 {
+				f.Vertices[2] = e.V1
 			} else {
 				// if this face doesn't reference V1 then continue without updating
 				// e.V1.Faces
@@ -308,14 +308,14 @@ func (e *edge) collapse(threshold float64) (did_collapse bool) {
 // Calculate the Kp fundemental error matrix of a face, quadric of plane
 func (f *face) calculateKp() {
 	a, b, c := tb.Normal(
-		f.Verts[0].Coords[:],
-		f.Verts[1].Coords[:],
-		f.Verts[2].Coords[:],
+		f.Vertices[0].Coords[:],
+		f.Vertices[1].Coords[:],
+		f.Vertices[2].Coords[:],
 	)
 	// use center point of triangle is better?
-	cx := (f.Verts[0].Coords[0] + f.Verts[1].Coords[0] + f.Verts[2].Coords[0]) / 3
-	cy := (f.Verts[0].Coords[1] + f.Verts[1].Coords[1] + f.Verts[2].Coords[1]) / 3
-	cz := (f.Verts[0].Coords[2] + f.Verts[1].Coords[2] + f.Verts[2].Coords[2]) / 3
+	cx := (f.Vertices[0].Coords[0] + f.Vertices[1].Coords[0] + f.Vertices[2].Coords[0]) / 3
+	cy := (f.Vertices[0].Coords[1] + f.Vertices[1].Coords[1] + f.Vertices[2].Coords[1]) / 3
+	cz := (f.Vertices[0].Coords[2] + f.Vertices[1].Coords[2] + f.Vertices[2].Coords[2]) / 3
 	d := -(a*cx + b*cy + c*cz)
 
 	f.Kp = &Quadric{
@@ -340,7 +340,7 @@ func QECD(m *mesh.Mesh, threshold float64, target_face_count int, safer_mode boo
 	edges := &edgeHeap{}
 
 	// build up vertices
-	m.Verts.Each(func(x, y, z float64) {
+	m.Vertices.Each(func(x, y, z float64) {
 		vertices = append(vertices, &vertex{
 			Coords: [3]float64{x, y, z},
 			Faces:  make([]*face, 0),
@@ -354,7 +354,7 @@ func QECD(m *mesh.Mesh, threshold float64, target_face_count int, safer_mode boo
 	edge_occurances := make(map[[2]int][]*face)
 	m.Faces.Each(func(a, b, c int) {
 		new_face := &face{
-			Verts: [3]*vertex{vertices[a], vertices[b], vertices[c]},
+			Vertices: [3]*vertex{vertices[a], vertices[b], vertices[c]},
 		}
 		faces = append(faces, new_face)
 		new_face.calculateKp()
@@ -448,7 +448,7 @@ func QECD(m *mesh.Mesh, threshold float64, target_face_count int, safer_mode boo
 	//
 	// Update the mesh with the changes made to vertices and faces
 	//
-	m.Verts = tb.NewVertexBuffer()
+	m.Vertices = tb.NewVertexBuffer()
 	m.Norms = tb.NewVectorBuffer()
 	m.Faces = tb.NewTriangleBuffer()
 
@@ -456,16 +456,19 @@ func QECD(m *mesh.Mesh, threshold float64, target_face_count int, safer_mode boo
 	for _, v := range vertices {
 		if !v.Collapsed {
 			v.FinalIndex = i
-			m.Verts.Buffer = append(m.Verts.Buffer, v.Coords[:]...)
+			m.Vertices.Buffer = append(m.Vertices.Buffer, v.Coords[:]...)
 			i++
 		}
 	}
 
 	for _, f := range faces {
-		if !(f.Collapsed || f.Verts[0].Collapsed || f.Verts[1].Collapsed || f.Verts[2].Collapsed) {
-			a := f.Verts[0].FinalIndex
-			b := f.Verts[1].FinalIndex
-			c := f.Verts[2].FinalIndex
+		if !(f.Collapsed ||
+			f.Vertices[0].Collapsed ||
+			f.Vertices[1].Collapsed ||
+			f.Vertices[2].Collapsed) {
+			a := f.Vertices[0].FinalIndex
+			b := f.Vertices[1].FinalIndex
+			c := f.Vertices[2].FinalIndex
 			m.Faces.Buffer = append(m.Faces.Buffer, a, b, c)
 		}
 	}
