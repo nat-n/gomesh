@@ -2,7 +2,6 @@ package mesh
 
 import (
 	"errors"
-	"fmt"
 	"github.com/nat-n/geom"
 )
 
@@ -10,7 +9,6 @@ type MeshI interface {
 	GetName() string
 	GetVertices() VertexCollection
 	GetFaces() FaceCollection
-	GetIndexOf(v VertexI) int
 	ReindexVerticesAndFaces()
 }
 
@@ -73,36 +71,6 @@ func (m *Mesh) GetFaces() FaceCollection {
 	return m.Faces
 }
 
-func (m *Mesh) GetIndexOf(v VertexI) (index int) {
-
-	// THIS IS AWFUL, WHY DO WE NEED THIS???
-
-	was_set := false
-
-	v.EachMeshLocation(func(m2 Mesh, i int) {
-		if m2.GetName() == m.GetName() &&
-			m2.GetFaces() == m.GetFaces() &&
-			m2.GetFaces() == m.GetFaces() &&
-			m2.GetVertices() == m.GetVertices() {
-			index = i
-			was_set = true
-			return
-		}
-	})
-
-	if !was_set {
-		fmt.Println("v: ", v)
-		fmt.Println("m: ", m)
-		panic("wasn't set")
-	}
-	return
-
-}
-
-func (m *Mesh) ClearVertexIndices() {
-
-}
-
 func (m *Mesh) ReindexVerticesAndFaces() {
 	m.Vertices.EachWithIndex(func(i int, v VertexI) {
 		v.ForgetLocationInMeshByName(m.GetName())
@@ -124,6 +92,7 @@ func MergeSharedVertices(vprime VertexI, vsecs ...VertexI) (err error) {
 			return
 		}
 	}
+
 	for _, vsec := range vsecs {
 		// connect faces from vsec to vprime
 		vsec.EachFace(func(f FaceI) {
@@ -133,7 +102,6 @@ func MergeSharedVertices(vprime VertexI, vsecs ...VertexI) (err error) {
 				return
 			}
 		})
-
 		// clear face references from vsec
 		vsec.RemoveAllFaces()
 

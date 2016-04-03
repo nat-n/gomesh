@@ -2,7 +2,6 @@ package mesh
 
 import (
 	"errors"
-	"fmt"
 	"github.com/nat-n/geom"
 	"strconv"
 )
@@ -78,27 +77,20 @@ func ConvertVertexSliceToVec3ISlice(input []VertexI) []geom.Vec3I {
 // Assumes there is only one mesh, panic's otherwise
 func (v *Vertex) GetMeshLocation() (Mesh, int) {
 	if len(v.Meshes) != 1 {
-		fmt.Println(v, v.Meshes)
-		for m, _ := range v.Meshes {
-			fmt.Println(m.GetName())
-		}
-		panic("Cannot call GetMeshLocation() on Border Vertex") // FIXME: anti-pattern
+		panic("Cannot call GetMeshLocation() on Vertex that doesn't occur in" +
+			" exactly one mesh!")
 	}
 	for m, id := range v.Meshes {
 		return m, id
 	}
-	panic("didn't find vert in a mesh...")
-	// return nil, 0
+	panic("Unkown Error looking up Mesh and location in mesh of Vertex")
 }
 
 func (v *Vertex) GetLocationInMesh(m Mesh) int {
 	if v.OccursInMesh(m) {
-		// fmt.Println("location was set!")
 		return v.Meshes[m]
 	}
-	m2, l2 := v.GetMeshLocation()
-	fmt.Println(&m, &m2, m == m2, l2, v.Meshes[m])
-	panic("No location is set for vertex in mesh")
+	panic("No location is set for vertex " + v.ToString() + "in mesh " + m.GetName())
 }
 
 func (v *Vertex) SetLocationInMesh(m Mesh, i int) {
@@ -208,20 +200,40 @@ func (v *Vertex) Validate() (err error) {
 	return
 }
 
-type VertexPair struct {
-	V1 VertexI
-	V2 VertexI
-}
+type SortableVertices []VertexI
 
-func MakeVertexPair(v1, v2 VertexI) VertexPair {
-	if v1.LessThan(v2) {
-		return VertexPair{v1, v2}
-	} else {
-		return VertexPair{v2, v1}
+func (vs SortableVertices) Len() int      { return len(vs) }
+func (vs SortableVertices) Swap(i, j int) { vs[i], vs[j] = vs[j], vs[i] }
+
+type VerticesByPosition struct{ SortableVertices }
+
+func (vs VerticesByPosition) Less(i, j int) bool {
+	a := vs.SortableVertices[i]
+	b := vs.SortableVertices[j]
+	if a.GetX() > b.GetX() {
+		return false
+	} else if a.GetX() == b.GetX() {
+		if a.GetY() > b.GetY() {
+			return false
+		} else if a.GetY() == b.GetY() {
+			if a.GetZ() > b.GetZ() {
+				return false
+			} else if a.GetZ() == b.GetZ() {
+				_, ai := a.GetMeshLocation()
+				_, bi := b.GetMeshLocation()
+				if ai >= bi {
+					return false
+				}
+			}
+		}
 	}
+	return true
 }
 
-func (vp *VertexPair) LessThan(vp2 *VertexPair) bool {
-	return (vp.V1.LessThan(vp2.V1) ||
-		(!vp2.V1.LessThan(vp.V1) && vp.V2.LessThan(vp2.V2)))
+type VerticesByMesh struct{ SortableVertices }
+
+func (vs VerticesByMesh) Less(i, j int) bool {
+	m1, _ := vs.SortableVertices[i].GetMeshLocation()
+	m2, _ := vs.SortableVertices[j].GetMeshLocation()
+	return m1.GetName() < m2.GetName()
 }

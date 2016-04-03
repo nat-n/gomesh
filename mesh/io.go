@@ -90,19 +90,18 @@ func LoadOBJ(obj_reader *io.Reader) (m *Mesh, err error) {
 // Write this mesh to a new obj file.
 func (m *Mesh) WriteOBJ(obj_writer io.Writer) (err error) {
 	// track where vertices were written
-	vert_lookup := make(map[VertexI]int)
+	vert_lookup := make(map[geom.Vec3]int)
 
 	// Write Vertices
-	for i := 0; i < m.Vertices.Len(); i++ {
-		v := m.Vertices.Get(i)[0]
-		vert_lookup[v] = i
+	m.Vertices.EachWithIndex(func(i int, v VertexI) {
+		vert_lookup[v.Clone()] = i
 		_, err = obj_writer.Write([]byte(
 			"v " + strconv.FormatFloat(v.GetX(), 'f', -1, 64) +
 				" " + strconv.FormatFloat(v.GetY(), 'f', -1, 64) +
 				" " + strconv.FormatFloat(v.GetZ(), 'f', -1, 64) +
 				"\n",
 		))
-	}
+	})
 	// It seems improbably that an error would occur for writing vertex but not
 	// the last one so only check the last one.
 	if err != nil {
@@ -140,9 +139,9 @@ func (m *Mesh) WriteOBJ(obj_writer io.Writer) (err error) {
 	for i := 0; i < m.Faces.Len(); i++ {
 		f := m.Faces.Get(i)[0]
 		_, err = obj_writer.Write([]byte(
-			"f " + strconv.Itoa(vert_lookup[f.GetA()]+1) +
-				" " + strconv.Itoa(vert_lookup[f.GetB()]+1) +
-				" " + strconv.Itoa(vert_lookup[f.GetC()]+1) +
+			"f " + strconv.Itoa(vert_lookup[f.GetA().Clone()]+1) +
+				" " + strconv.Itoa(vert_lookup[f.GetB().Clone()]+1) +
+				" " + strconv.Itoa(vert_lookup[f.GetC().Clone()]+1) +
 				"\n",
 		))
 	}

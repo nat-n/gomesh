@@ -26,6 +26,27 @@ func New(x1, y1, z1, x2, y2, z2 float64) *Cuboid {
 	}
 }
 
+func (c *Cuboid) Width() float64 {
+	return c.TerminusX - c.OriginX
+}
+
+func (c *Cuboid) Height() float64 {
+	return c.TerminusY - c.OriginY
+}
+
+func (c *Cuboid) Depth() float64 {
+	return c.TerminusZ - c.OriginZ
+}
+
+// Find the center point of the cuboid.
+func (c *Cuboid) Center() geom.Vec3 {
+	return geom.Vec3{
+		c.OriginX + (c.TerminusX-c.OriginX)/2,
+		c.OriginY + (c.TerminusY-c.OriginY)/2,
+		c.OriginZ + (c.TerminusZ-c.OriginZ)/2,
+	}
+}
+
 // Returns a new cuboid that is `distance` units larger in all 6 directions.
 func (c *Cuboid) Expanded(distance float64) *Cuboid {
 	return &Cuboid{
@@ -35,15 +56,6 @@ func (c *Cuboid) Expanded(distance float64) *Cuboid {
 		TerminusX: c.TerminusX + distance,
 		TerminusY: c.TerminusY + distance,
 		TerminusZ: c.TerminusZ + distance,
-	}
-}
-
-// Find the center point of the cuboid.
-func (c *Cuboid) Center() geom.Vec3 {
-	return geom.Vec3{
-		c.OriginX + (c.TerminusX-c.OriginX)/2,
-		c.OriginY + (c.TerminusY-c.OriginY)/2,
-		c.OriginZ + (c.TerminusZ-c.OriginZ)/2,
 	}
 }
 

@@ -2,10 +2,11 @@ package mesh
 
 import (
 	"container/list"
-	"fmt"
+	"errors"
 	"github.com/nat-n/geom"
 	"math"
 	"sort"
+	"strconv"
 )
 
 import cb "github.com/nat-n/gomesh/cuboid"
@@ -47,7 +48,7 @@ func (m *Mesh) SubsetBoundingBox(subset interface{}) *cb.Cuboid {
 	if verts, ok := subset.([]VertexI); ok {
 		subset_indices = make([]int, len(verts), len(verts))
 		for i, vert := range verts {
-			subset_indices[i] = m.GetIndexOf(vert)
+			subset_indices[i] = vert.GetLocationInMesh(*m)
 		}
 	} else {
 		subset_indices = subset.([]int)
@@ -194,9 +195,9 @@ func NewFromCuboid(c cb.Cuboid) (m *Mesh) {
 // loops of border vertices.
 // Border vertices are identified as including a face which includes an edge
 // which is only included in that one face.
-func (m *Mesh) IdentifyBoundaries() (boundaries [][]VertexI) {
+func (m *Mesh) IdentifyBoundaries() (boundaries [][]VertexI, err error) {
 	edge_counts := make(map[VertexPair]int)
-	boundary_edges_slice := make(sortableVertexPairs, 0)
+	boundary_edges_slice := make(SortableVertexPairs, 0)
 	boundary_edges := list.New()
 
 	m.Faces.Each(func(f FaceI) {
@@ -237,7 +238,6 @@ func (m *Mesh) IdentifyBoundaries() (boundaries [][]VertexI) {
 			}
 			found_next_node := false
 			for node := boundary_edges.Front(); node != nil; node = node.Next() {
-				// fmt.Println("node", boundary_edges.Len())
 				if node.Value.(VertexPair).V1 == tail {
 					latest_partial = append(latest_partial, node.Value.(VertexPair).V2)
 					boundary_edges.Remove(node)
@@ -251,10 +251,9 @@ func (m *Mesh) IdentifyBoundaries() (boundaries [][]VertexI) {
 				}
 			}
 			if !found_next_node {
-				// TODO: make better
-				fmt.Println(m.GetName())
-				fmt.Println("got stuck, with remaining", boundary_edges.Len())
-				panic(":(")
+				err = errors.New("Couldn't complete boundary with " +
+					strconv.Itoa(boundary_edges.Len()) + " edges remaining")
+				return
 			}
 		}
 		partials.PushBack(latest_partial[:len(latest_partial)-1])
@@ -273,11 +272,3 @@ func (m *Mesh) IdentifyBoundaries() (boundaries [][]VertexI) {
 
 	return
 }
-
-// for sorting the slice of edges... TODO: tidy this up somewhere
-
-type sortableVertexPairs []VertexPair
-
-func (v sortableVertexPairs) Len() int           { return len(v) }
-func (v sortableVertexPairs) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
-func (v sortableVertexPairs) Less(i, j int) bool { return v[i].LessThan(&v[j]) }

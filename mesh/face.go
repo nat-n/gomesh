@@ -1,7 +1,6 @@
 package mesh
 
 import (
-	"errors"
 	"github.com/nat-n/geom"
 	"strconv"
 )
@@ -20,7 +19,6 @@ type FaceI interface {
 	EachVertex(func(VertexI))
 	ReplaceVertex(VertexI, VertexI)
 	ToString() string
-	Validate() error
 }
 
 type Face struct {
@@ -62,42 +60,15 @@ func (f *Face) EachVertex(cb func(VertexI)) {
 }
 
 func (f *Face) ReplaceVertex(old_vert, new_vert VertexI) {
-
-	// assert("ReplaceVertex of face called validly",
-	// 	// new_vert shouldn't already be references by the face
-	// 	f.Verts[0] != new_vert && f.Verts[1] != new_vert && f.Verts[2] != new_vert &&
-	// 		// old_vert should be referenced by the face
-	// 		(f.Verts[0] == old_vert || f.Verts[1] == old_vert || f.Verts[2] == old_vert))
-
-	// defer func() {
-	// 	assert("ReplaceVertex of face succeeded",
-	// 		// f.Verts no longer references old_vert
-	// 		f.Verts[0] != old_vert && f.Verts[1] != old_vert && f.Verts[2] != old_vert &&
-	// 			// f.Verts references new_vert exactly once
-	// 			((f.Verts[0] == new_vert && f.Verts[1] != new_vert && f.Verts[2] != new_vert) ||
-	// 				(f.Verts[0] != new_vert && f.Verts[1] == new_vert && f.Verts[2] != new_vert) ||
-	// 				(f.Verts[0] != new_vert && f.Verts[1] != new_vert && f.Verts[2] == new_vert)))
-	// }()
-
-	// var replaced_i int
-	// replaced_i = -1
-
 	if f.Vertices[0] == old_vert {
 		f.Vertices[0] = new_vert
-		// replaced_i = 0
 	} else if f.Vertices[1] == old_vert {
 		f.Vertices[1] = new_vert
-		// replaced_i = 1
 	} else if f.Vertices[2] == old_vert {
 		f.Vertices[2] = new_vert
-		// replaced_i = 2
 	} else {
 		panic("didn't find old_vert to replace in face")
 	}
-
-	// if os.Getenv("verbosity") == "2" {
-	// 	fmt.Println("$$1 ReplaceVertex f.Verts: ", f.Verts, "Replaced:", replaced_i)
-	// }
 }
 
 func (f *Face) ToString() string {
@@ -105,14 +76,4 @@ func (f *Face) ToString() string {
 		strconv.Itoa(f.Vertices[0].GetLocationInMesh(f.Mesh)) + " " +
 		strconv.Itoa(f.Vertices[1].GetLocationInMesh(f.Mesh)) + " " +
 		strconv.Itoa(f.Vertices[2].GetLocationInMesh(f.Mesh)) + "}"
-}
-
-func (f *Face) Validate() (err error) {
-	if false {
-		errors.New("false!")
-	}
-
-	// has three different vertices...
-
-	return
 }
